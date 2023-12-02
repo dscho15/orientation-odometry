@@ -3,10 +3,19 @@ import cv2
 
 class PinholeCamera:
     
-    def __init__(self, 
-                 intrinsics: np.array = None,
+    def __init__(self,
+                 h: int, 
+                 w: int,
+                 cx: float,
+                 cy: float,
+                 fx: float,
+                 fy: float,
                  dist_params: np.array = None) -> None:
-        self.intrinsics = intrinsics
+        self.w = w
+        self.h = h
+        self.intrinsics = np.array([[fx, 0, cx],
+                                    [0, fy, cy],
+                                    [0, 0, 1]])
         self.dist_params = dist_params
     
     def project(self, 

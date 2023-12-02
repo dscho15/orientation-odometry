@@ -9,13 +9,18 @@ class SiftExtractor:
         # create sift featuer extractor
         self.sift = cv2.SIFT_create()
     
-    def __call__(self, image: np.ndarray, mask: np.ndarray = None) -> Any:
+    def __call__(self, image: np.ndarray, mask: np.ndarray = None) -> tuple[np.ndarray, np.ndarray]:
         """
         Extract sift features from image
         """
         # compute sift features
         keypoints, descriptors = self.sift.detectAndCompute(image, mask)
-        return keypoints, descriptors
+        
+        # convert keypoints to numpy array
+        keypoints = np.array([kp.pt for kp in keypoints])
+        descriptors = np.array(descriptors)
+        
+        return (keypoints, descriptors)
     
 if __name__ == "__main__":
     
