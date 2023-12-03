@@ -4,37 +4,58 @@ import cv2
 class PinholeCamera:
     
     def __init__(self,
-                 h: int, 
-                 w: int,
+                 height: int, 
+                 width: int,
                  cx: float,
                  cy: float,
                  fx: float,
                  fy: float,
-                 dist_params: np.array = None) -> None:
-        self.w = w
-        self.h = h
+                 dist_params: np.ndarray = None) -> None:
+        self.width = width
+        self.height = height
         self.intrinsics = np.array([[fx, 0, cx],
                                     [0, fy, cy],
                                     [0, 0, 1]])
         self.dist_params = dist_params
     
+    @property
+    def extended_intrinsics(self) -> np.ndarray:
+        """
+        Return extended intrinsics matrix
+        """
+        return np.concatenate([self.intrinsics, np.zeros((3, 1))], axis=1)
+    
+    def dehomogenize(self,
+                   points: np.ndarray) -> np.ndarray:
+        return points[:, :2] / points[:, 2, None]
+    
     def project(self, 
-                points_3d: np.array) -> np.array:
+                points_3d: np.ndarray,
+                homogeneous: bool = False) -> np.ndarray:
         """
         Project 3D points to 2D image plane
         """
-        pass
+        points_3d = np.concatenate([points_3d, np.ones((points_3d.shape[0], 1))], axis=1)
+        points_2d = np.matmul(self.extended_intrinsics, points_3d.T).T
+        if homogeneous:
+            return points_2d
+        return self.dehomogenize(points_2d)
     
     def undistort(self, 
-                  img: np.array) -> np.array:
+                  image: np.ndarray) -> np.ndarray:
         """
         Undistort image
         """
-        pass
+        if self.dist_params is not None:
+            undistorted_image = cv2.undistort(image, self.intrinsics, self.dist_params)
+        else:
+            undistorted_image = image
+        return undistorted_image
     
-    def check_if_3D_points_is_in_frustum(self, 
-                                        point_3d: np.array) -> bool:
+    def check_if_3d_point_is_in_frustum(self, 
+                                        point_3d: np.ndarray) -> bool:
         """
-        Check if 3D point is in front of camera
+        Check if 3D point is in front of the camera
         """
-        pass
+        homogeneous_2d_points = self.project(point_3d, True)
+        return homogeneous_2d_points[:, 2] > 0
