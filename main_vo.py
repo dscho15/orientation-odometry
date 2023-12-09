@@ -3,6 +3,7 @@ from dataset import KittyDataset
 from core.camera.camera import PinholeCamera
 from misc import get_extractor, get_matcher
 from visual_odometry import VisualOdometry
+from tqdm import tqdm
 
 
 def parse_args():
@@ -35,6 +36,12 @@ if __name__ == "__main__":
     matcher = get_matcher(args.matcher)
 
     visual_odom = VisualOdometry(cam, extractor, matcher)
+    outliers, time_pose_est, time_feature_extract = 0, 0, 0
+    
+    pbar = tqdm(range(len(dataset) - 1))
 
-    for i in range(len(dataset) - 1):
-        visual_odom.process_frame(i, dataset[i])
+    for i in pbar:
+        (outliers, time_pose_est, time_feature_extract) = visual_odom.process_frame(i, dataset[i])
+        pbar.set_description("Outliers: {:.2f}, Pose Estimation: {:.2f}, Feature Extraction: {:.2f}".format(outliers, time_pose_est, time_feature_extract))
+        
+        
