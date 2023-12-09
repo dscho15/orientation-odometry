@@ -3,3 +3,4 @@ opencv-python
 pandas
 matplotlib
 pyparsing
+g2o-python
