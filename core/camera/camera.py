@@ -1,5 +1,6 @@
 import numpy as np
 import cv2
+from typing import Optional
 
 
 class PinholeCamera:
@@ -11,7 +12,7 @@ class PinholeCamera:
         cy: float,
         fx: float,
         fy: float,
-        dist_params: np.ndarray = None,
+        dist_params: Optional[np.ndarray] = None,
     ) -> None:
         self.width = width
         self.height = height
@@ -50,7 +51,7 @@ class PinholeCamera:
             undistorted_image = image
         return undistorted_image
 
-    def check_if_3d_point_is_in_frustum(self, point_3d: np.ndarray) -> bool:
+    def check_if_3d_point_is_in_frustum(self, point_3d: np.ndarray) -> np.ndarray:
         """
         Check if 3D point is in front of the camera
         """

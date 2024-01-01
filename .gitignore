@@ -1,2 +1,3 @@
 datasets/kitty*
 *pycache*
+datasets/*

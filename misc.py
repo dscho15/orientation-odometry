@@ -1,7 +1,4 @@
 def get_extractor(extractor_name: str):
-    """
-    Get feature extractor
-    """
     if extractor_name == "sift":
         from sift_extractor import SiftExtractor
 
@@ -10,14 +7,15 @@ def get_extractor(extractor_name: str):
         from sift_extractor import RootSiftExtractor
 
         return RootSiftExtractor()
+    elif extractor_name == "orb":
+        from sift_extractor import OrbExtractor
+
+        return OrbExtractor()
     else:
         raise NotImplementedError("Extractor not implemented")
 
 
 def get_matcher(matcher_name: str):
-    """
-    Get matcher
-    """
     if matcher_name == "greedy":
         from matcher import GreedyMatcher
 

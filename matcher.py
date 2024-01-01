@@ -1,44 +1,83 @@
 import numpy as np
 import cv2
+import logging
+from enum import Enum
 
+class FeatureMatcherTypes(Enum):
+    NONE = 0
+    BF = 1     
 
-class MatcherBase:
-    def __init__(self) -> None:
-        self.model = None
+ratio_test = 0.5
 
-    def __call__(
-        self, descriptors1: np.ndarray, descriptors2: np.ndarray
-    ) -> np.ndarray:
-        NotImplementedError("Implement this method in a child class")
+def feature_matcher_factory(norm_type: int=cv2.NORM_HAMMING, cross_check: bool=False, ratio_test: float=ratio_test, type=FeatureMatcherTypes.BF):
+    if type == FeatureMatcherTypes.BF:
+        return BfFeatureMatcher(norm_type=norm_type, cross_check=cross_check, ratio_test=ratio_test, type=type)
+    return None 
 
-
-class GreedyMatcher(MatcherBase):
-    def __init__(self, cross_check: bool = True) -> None:
+class FeatureMatcher:
+    def __init__(self, 
+                 norm_type = cv2.NORM_HAMMING, 
+                 cross_check: bool = False,
+                 ratio_test: float = 0.5,
+                 type: FeatureMatcherTypes = FeatureMatcherTypes.BF) -> None:
+        self.norm_type = norm_type
         self.cross_check = cross_check
-        self.matcher = cv2.BFMatcher(cv2.NORM_L2, crossCheck=self.cross_check)
+        self.matches = []
+        self.ratio_test = ratio_test 
+        self.matcher = None 
+        self.matcher_name = ''
 
-    def __call__(
-        self, descriptors1: np.ndarray, descriptors2: np.ndarray
-    ) -> np.ndarray:
+    def match(self, descriptors1: np.ndarray, descriptors2: np.ndarray) -> np.ndarray:
         matches = self.matcher.match(descriptors1, descriptors2)
-        matches = [np.array([m.queryIdx, m.trainIdx]) for m in matches]
-        matches = np.array(matches)
-        return matches
+        self.matches = matches
+        return self.good_matches(descriptors1, descriptors2)
 
+    def good_matches(self, desc1: np.ndarray, desc2: np.ndarray, kps1: np.ndarray, kps2: np.ndarray, ratio_test: float=None, cross_check: bool=True, err_thld: int=1):
+        
+        idx1, idx2 = [], []      
+        if ratio_test is None: 
+            ratio_test = self.ratio_test
+            
+        init_matches1 = self.matcher.knnMatch(desc1, desc2, k=2)
+        init_matches2 = self.matcher.knnMatch(desc2, desc1, k=2)
 
-class RatioMatcher(MatcherBase):
-    def __init__(self, ratio: float = 0.7) -> None:
-        self.ratio = ratio
-        self.matcher = cv2.BFMatcher(cv2.NORM_L2, crossCheck=False)
+        good_matches = []
 
-    def __call__(
-        self, descriptors1: np.ndarray, descriptors2: np.ndarray
-    ) -> np.ndarray:
-        matches = self.matcher.knnMatch(descriptors1, descriptors2, k=2)
-        matches = [
-            np.array([m[0].queryIdx, m[0].trainIdx])
-            for m in matches
-            if m[0].distance < self.ratio * m[1].distance
-        ]
-        matches = np.array(matches)
-        return matches
+        for i,(m1,n1) in enumerate(init_matches1):
+            cond = True
+            if cross_check:
+                cond1 = cross_check and init_matches2[m1.trainIdx][0].trainIdx == i
+                cond *= cond1
+            if ratio_test is not None:
+                cond2 = m1.distance <= ratio_test * n1.distance
+                cond *= cond2
+            if cond:
+                good_matches.append(m1)
+                idx1.append(m1.queryIdx)
+                idx2.append(m1.trainIdx)
+
+        if type(kps1) is list and type(kps2) is list:
+            good_kps1 = np.array([kps1[m.queryIdx].pt for m in good_matches])
+            good_kps2 = np.array([kps2[m.trainIdx].pt for m in good_matches])
+        elif type(kps1) is np.ndarray and type(kps2) is np.ndarray:
+            good_kps1 = np.array([kps1[m.queryIdx] for m in good_matches])
+            good_kps2 = np.array([kps2[m.trainIdx] for m in good_matches])
+        else:
+            raise Exception("Keypoint type error!")
+            exit(-1)
+
+        ransac_method = None 
+        try: 
+            ransac_method = cv2.USAC_MSAC 
+        except: 
+            ransac_method = cv2.RANSAC
+        _, mask = cv2.findFundamentalMat(good_kps1, good_kps2, ransac_method, err_thld, confidence=0.999)
+        n_inlier = np.count_nonzero(mask)
+        print(info, 'n_putative', len(good_matches), 'n_inlier', n_inlier)
+        return idx1, idx2, good_matches, mask
+        
+class BfFeatureMatcher(FeatureMatcher):
+    def __init__(self, norm_type=cv2.NORM_HAMMING, cross_check = False, ratio_test=ratio_test, type = FeatureMatcherTypes.BF):
+        super().__init__(norm_type=norm_type, cross_check=cross_check, ratio_test=ratio_test, type=type)
+        self.matcher = cv2.BFMatcher(norm_type, cross_check)     
+        self.matcher_name = 'BfFeatureMatcher'

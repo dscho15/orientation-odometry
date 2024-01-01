@@ -2,37 +2,38 @@ import numpy as np
 from matplotlib import pyplot as plt
 import cv2
 import logging
+from typing import Optional
 
 
 def visualize_pair(
     img1: np.ndarray,
     img2: np.ndarray,
-    kp1: np.ndarray,
-    kp2: np.ndarray,
-    matches: np.ndarray,
-    draw: int = 250,
+    kps1: np.ndarray,
+    kps2: np.ndarray,
+    draw: int = 500,
 ):
     """
     Visualize a pair of images with matched features
     """
-    kp1 = kp1.astype(int)
-    kp2 = kp2.astype(int) + np.array([img1.shape[1], 0])
+    kps1 = kps1.astype(int)
+    kps2 = kps2.astype(int) + np.array([img1.shape[1], 0])
 
     img = np.hstack([img1, img2])
 
-    for i, m in enumerate(matches):
-        kp1_ = kp1[m[0]]
-        kp2_ = kp2[m[1]]
-        img = cv2.line(img, tuple(kp1_), tuple(kp2_), (0, 255, 0), 1)
-        img = cv2.circle(img, tuple(kp1_), 2, (0, 0, 255), 1)
-        img = cv2.circle(img, tuple(kp2_), 2, (0, 0, 255), 1)
+    # randomly permute kps1 and kps2
+    idxs = np.random.permutation(kps1.shape[0])
+    kps1 = kps1[idxs]
+    kps2 = kps2[idxs]
 
-        if i > draw:
+    cnt = 0
+    for kp1, kp2 in zip(kps1, kps2):
+        img = cv2.line(img, tuple(kp1), tuple(kp2), (0, 255, 0), 1)
+        img = cv2.circle(img, tuple(kp1), 2, (0, 0, 255), 1)
+        img = cv2.circle(img, tuple(kp2), 2, (0, 0, 255), 1)
+        if cnt > draw:
             break
+        cnt += 1
 
-    logging.info(f"number of matches: {len(matches)}")
-
-    plt.imshow(img, cmap="gray")
+    plt.imshow(img)
     plt.show()
-
     return img

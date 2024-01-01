@@ -2,15 +2,23 @@ import numpy as np
 from pathlib import Path
 import pandas as pd
 from PIL import Image
+from pprint import pprint
 
 
-def read_calib_kitty(calib_path: Path) -> list[np.ndarray]:
+def read_calib_kitty(calib_path: Path, dataset: int) -> list[np.ndarray]:
     with open(calib_path, "r") as f:
-        lines = [
-            list(map(float, line.strip().split(" ")[1:])) for line in f.readlines()
-        ]
-    camera_matrices = [np.array(line).reshape(3, 4) for line in lines]
-    return camera_matrices
+        lines = [list(line.strip().split(" ")) for line in f.readlines()]
+    calib_data = {line[0]: line[1:] for line in lines}
+    calib_data = {k: [float(v) for v in val] for k, val in calib_data.items()}
+    calib_data = {
+        k: np.array(val).reshape((3, 4)) if len(val) == 12 else np.array(val)
+        for k, val in calib_data.items()
+    }
+    calib_data = {
+        k: np.array(val).reshape((3, 3)) if len(val) == 9 else np.array(val)
+        for k, val in calib_data.items()
+    }
+    return calib_data
 
 
 class KittyDataset:
@@ -19,15 +27,16 @@ class KittyDataset:
         p_imgs: str,
         calib: str = None,
         timestamps: str = None,
-        grayscale: bool = True,
+        grayscale: bool = False,
     ) -> None:
         assert Path(p_imgs).exists(), "Dataset path does not exist"
         self.p_imgs = p_imgs
-        self.camera_matrices = read_calib_kitty(calib)
+        self.calib_data = read_calib_kitty(calib, int(self.p_imgs[-1]))
+        self.camera_matrix = self.calib_data[f"K_0{self.p_imgs[-1]}:"]
         self.idx = int(p_imgs.split("_")[-1])
         self.timestamps = pd.read_csv(timestamps, header=None, names=["timestamp"])
-        self.imgs = sorted(list(Path(self.p_imgs).glob("*.png")))
-        self.imgs = [str(img) for img in self.imgs]
+        self.imgs = Path(self.p_imgs).rglob("*.png")
+        self.imgs = sorted([str(img) for img in self.imgs])
         self.grayscale = grayscale
 
     @property
@@ -35,16 +44,8 @@ class KittyDataset:
         return self.timestamps
 
     @property
-    def get_camera_matrices(self) -> list[np.ndarray]:
-        return self.camera_matrices
-
-    @property
-    def get_camera_matrix(self) -> np.ndarray:
-        return self.camera_matrices[self.idx]
-
-    @property
     def get_raw_extrinsics(self) -> np.ndarray:
-        cam_mat = self.camera_matrices[self.idx]
+        cam_mat = self.camera_matrix
         fx, fy, cx, cy = cam_mat[0, 0], cam_mat[1, 1], cam_mat[0, 2], cam_mat[1, 2]
         return fx, fy, cx, cy
 
@@ -67,11 +68,8 @@ class KittyDataset:
 
 if __name__ == "__main__":
     kitty_dataset = KittyDataset(
-        "datasets/kitty/00/image_2",
-        "datasets/kitty/00/calib.txt",
-        "datasets/kitty/00/times.txt",
+        "datasets/2011_09_26/2011_09_26_drive_0018_extract/image_02",
+        "datasets/2011_09_26/calib_cam_to_cam.txt",
+        "datasets/2011_09_26/2011_09_26_drive_0018_extract/image_00/timestamps.txt",
     )
-
-    print(kitty_dataset.get_camera_matrices)
-    print(kitty_dataset.get_timestamps)
     kitty_dataset[0]

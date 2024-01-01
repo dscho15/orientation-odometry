@@ -55,5 +55,4 @@ def visualize_slerp_3D(q1: np.ndarray, q2: np.ndarray, n: np.ndarray = 100):
     
     
 if __name__ == "__main__":
-    
     visualize_slerp_3D(np.array([1, 0, 0, 0]), np.array([0, 1, 0, 0]), 100)

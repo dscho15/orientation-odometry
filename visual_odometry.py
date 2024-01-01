@@ -1,58 +1,39 @@
-import numpy as np
-from core.pose.pose import Pose
-from core.camera.camera import PinholeCamera
 import cv2
 import logging
 import time
+from pprint import pprint
 
-from visualizer_2d import visualize_pair
+import numpy as np
+
+from core.camera.camera import PinholeCamera
 from core.filters.moving_average import MovingAverageFilter
+from core.pose.pose import Pose
+from visualizer_2d import visualize_pair
+from vo_utils import FeatureTrackingResult
+import matplotlib.pyplot as plt
 
 
-class FeatureTrackingResult(object):
-    def __init__(
-        self,
-        cur_kps: np.ndarray,
-        cur_desc: np.ndarray,
-        prev_kps: np.ndarray,
-        prev_desc: np.ndarray,
-        matches: np.ndarray,
-    ) -> None:
-        assert (
-            prev_kps.shape[0] == prev_desc.shape[0]
-        ), "Number of keypoints and descriptors for previous frame do not match"
-        assert (
-            cur_kps.shape[0] == cur_desc.shape[0]
-        ), "Number of keypoints and descriptors for current frame do not match"
-        assert matches.shape[1] == 2, "Matches array should have shape (n, 2)"
-
-        self.prev_kps = prev_kps
-        self.prev_desc = prev_desc
-        self.prev_idxs = matches[:, 1]
-
-        self.cur_kps = cur_kps
-        self.cur_desc = cur_desc
-        self.cur_idxs = matches[:, 0]
-
-    @property
-    def kps_cur_matched(self):
-        return self.cur_kps[self.cur_idxs]
-
-    @property
-    def kps_prev_matched(self):
-        return self.prev_kps[self.prev_idxs]
-
-    @property
-    def num_matches(self):
-        return self.cur_idxs.shape[0]
+def squared_error(x: np.ndarray, y: np.ndarray) -> float:
+    return np.linalg.norm(x - y, axis=1)
 
 
 class VisualOdometry(object):
-    ransac_reproj_tsh = 0.1
-    confidence = 0.999
+    ransac_tsh_normalized = 0.1
+    ransac_confidence = 0.999
+    ransac_method = cv2.RANSAC
+    ransac_max_iters = 20000
+    keypoint_criteria_max_number_of_frames = 3
+    keypoint_criteria_min_movement_tsh = 3
+    keypoint_criteria_min_matched_tsh = 20
 
-    def __init__(self, cam, fm_extractor, matcher) -> None:
-        self.cam = cam
+    def __init__(
+        self,
+        cam: PinholeCamera,
+        fm_extractor: callable,
+        matcher: callable,
+        do_visualize: bool = False,
+    ) -> None:
+        self.camera = cam
 
         self.cur_img = None
         self.prev_img = None
@@ -66,98 +47,174 @@ class VisualOdometry(object):
         self.fm_extractor = fm_extractor
         self.matcher = matcher
 
-        self.cur_pose = Pose()
-        self.pose_history = []
+        self.pose_history = [np.eye(4, 4)]
 
         self.outliers = MovingAverageFilter(10)
         self.time_pose_est = MovingAverageFilter(10)
         self.time_feature_extract = MovingAverageFilter(10)
 
+        self.visualize: bool = do_visualize
+        self.latest_keyframe_id: int = 0
+
         logging.basicConfig(level=logging.INFO)
 
-    def absolute_scale(self, frame_id: int) -> np.ndarray:
-        return np.r_[0, 0, 1]
+    def check_keypoint_criteria(
+        self, prev_kps: np.ndarray, cur_kps: np.ndarray, frame_id: int
+    ) -> bool:
+        # Criteria 1: Sufficient camera movement
+        avg_movement = np.median(squared_error(prev_kps, cur_kps))
+        if avg_movement < self.keypoint_criteria_min_movement_tsh:
+            return False
 
-    def find_relative_scale(self, frame_id):
-        pass
+        # Criteria 2: Sufficient time has passed since last keyframe
+        if (
+            frame_id - self.latest_keyframe_id
+            < self.keypoint_criteria_max_number_of_frames
+        ):
+            return False
 
-    def extract_features(self, img: np.ndarray) -> (np.ndarray, np.ndarray):
-        kp1, desc1 = self.fm_extractor(img)
-        return kp1, desc1
+        # Criteria 3: Sufficient number of matches
+        num_matches = len(prev_kps)
+        if num_matches < self.keypoint_criteria_min_matched_tsh:
+            return False
 
-    def remove_outliers(
-        self, cur_kps: np.ndarray, prev_kps: np.ndarray, mask: np.ndarray = None
+        # Criteria 4: Sufficient number of
+        # num_inliers = self.mask_match.sum()
+        # if num_inliers / num_matches > 0.5:
+        #     return False
+
+        return True
+
+    def drop_outliers(
+        self, cur_kps: np.ndarray, prev_kps: np.ndarray, mask: np.ndarray
     ):
-        if mask is not None:
-            cur_kps = cur_kps[mask.ravel() == 1]
-            prev_kps = prev_kps[mask.ravel() == 1]
+        cur_kps = cur_kps[mask.ravel() == 1]
+        prev_kps = prev_kps[mask.ravel() == 1]
         return cur_kps, prev_kps
 
-    def estimate_pose(
-        self, cur_kps: np.ndarray, prev_kps: np.ndarray
+    def find_essential_matrix(
+        self, prev_kps: np.ndarray, cur_kps: np.ndarray
     ) -> (np.ndarray, np.ndarray):
-        E, self.mask_match = cv2.findEssentialMat(
-            cur_kps,
+        return cv2.findEssentialMat(
             prev_kps,
-            cameraMatrix=self.cam.intrinsics,
-            method=cv2.USAC_MAGSAC,
-            prob=self.confidence,
-            threshold=self.ransac_reproj_tsh,
+            cur_kps,
+            cameraMatrix=self.camera.intrinsics,
+            maxIters=self.ransac_max_iters,
+            method=self.ransac_method,
+            prob=self.ransac_confidence,
+            threshold=self.ransac_tsh_normalized,
         )
 
-        _, R, t, self.mask_match = cv2.recoverPose(
-            E, cur_kps, prev_kps, focal=1.0, pp=(0.0, 0.0), mask=self.mask_match
-        )
+    def decompose_essential_matrix(self, E: np.ndarray, eps: float = 1e-2):
+        R1, R2, t = cv2.decomposeEssentialMat(E)
 
-        return (R, t)
+        # Check if any of the rotation matrices are the identity matrix (i.e. no rotation)
+        if (np.sum(R1.diagonal())) > 3 - eps:
+            R2 = R1
+        elif (np.sum(R2.diagonal())) > 3 - eps:
+            R1 = R2
+
+        return R1, R2, t
+
+    def estimate_pose(
+        self, prev_kps: np.ndarray, cur_kps: np.ndarray
+    ) -> ((np.ndarray, np.ndarray), np.ndarray):
+        pose_timer = time.time()
+
+        E, mask_match = self.find_essential_matrix(prev_kps, cur_kps)
+
+        R, t = self.recover_pose(E, prev_kps, cur_kps, mask_match)
+
+        self.time_pose_est(time.time() - pose_timer)
+        return (R, t), mask_match
+
+    def recover_pose(
+        self, E: np.ndarray, prev_kps: np.ndarray, cur_kps: np.ndarray, mask: np.ndarray
+    ):
+        cur_kps, prev_kps = self.drop_outliers(cur_kps, prev_kps, mask)
+
+        R1, R2, t = self.decompose_essential_matrix(E)
+
+        P1 = np.hstack((R1, t))
+        P2 = np.hstack((R1, -t))
+        P3 = np.hstack((R2, t))
+        P4 = np.hstack((R2, -t))
+
+        inliers = 0
+        for P in [P1, P2, P3, P4]:
+            # Triangulate points
+            prev_P = self.camera.intrinsics @ np.eye(3, 4) @ np.eye(4, 4)
+            cur_P = (
+                self.camera.intrinsics
+                @ np.eye(3, 4)
+                @ np.vstack((P, np.array([0, 0, 0, 1])))
+            )
+
+            points_3d = cv2.triangulatePoints(prev_P, cur_P, prev_kps.T, cur_kps.T)
+            points_3d /= points_3d[3]
+
+            # Check if points are in front of camera (Z > 0)
+            if (points_3d[2] > 0).sum() > inliers:
+                inliers = (points_3d[2] > 0).sum()
+                self.P = P
+
+        return self.P[:3, :3], self.P[:3, 3][:, np.newaxis]
 
     def proc_first_frame(self):
-        self.cur_kps, self.cur_desc = self.extract_features(self.cur_img)
+        self.keyframe_kps, self.keyframe_desc = self.fm_extractor(self.cur_img)
 
     def track_features_between_frames(self) -> FeatureTrackingResult:
-        self.cur_kps, self.cur_desc = self.extract_features(self.cur_img)
-        self.matches = self.matcher(self.cur_desc, self.prev_desc)
+        feature_timer = time.time()
+
+        self.cur_kps, self.cur_desc = self.fm_extractor(self.cur_img)
+
+        self.matches = self.matcher(self.keyframe_desc, self.cur_desc)
+
         feature_tracking_result = FeatureTrackingResult(
-            self.cur_kps, self.cur_desc, self.prev_kps, self.prev_desc, self.matches
+            self.cur_kps,
+            self.cur_desc,
+            self.keyframe_kps,
+            self.keyframe_desc,
+            self.matches,
         )
+
+        self.time_feature_extract(time.time() - feature_timer)
         return feature_tracking_result
 
-    def process_frame(self, i: int, img: np.ndarray):
-        self.prev_img = self.cur_img
+    def process_frame(self, i: int, img: np.ndarray) -> tuple[np.ndarray, float, float]:
         self.cur_img = img
-        self.prev_kps, self.prev_desc = self.cur_kps, self.cur_desc
 
         if i == 0:
             self.proc_first_frame()
+            self.latest_keyframe_id = i
+            self.keyframe_img = img
+
         else:
-            # match features
-            feature_timer = time.time()
             self.ft_results = self.track_features_between_frames()
-            self.time_feature_extract(time.time() - feature_timer)
 
-            # estimate pose
-            pose_timer = time.time()
-            R, t = self.estimate_pose(
-                self.ft_results.kps_cur_matched, self.ft_results.kps_prev_matched
-            )
-            self.time_pose_est(time.time() - pose_timer)
+            if not self.check_keypoint_criteria(*(self.ft_results.kps_matched), i):
+                logging.info(f"Keypoint criteria not met {i}")
 
-            # update variables
-            self.cur_kps = self.ft_results.cur_kps
-            self.cur_desc = self.ft_results.cur_desc
+            else:
+                (R, t), self.mask_match = self.estimate_pose(
+                    *(self.ft_results.kps_matched)
+                )
 
-            self.prev_kps = self.ft_results.prev_kps
-            self.prev_desc = self.ft_results.prev_desc
+                num_matches = self.ft_results.num_matches
+                self.num_inliers = self.mask_match.sum()
+                self.outliers(self.num_inliers / num_matches)
 
-            self.num_matches = self.ft_results.num_matches
-            self.num_inliers = self.mask_match.sum()
-            self.outliers(self.num_inliers / self.num_matches)
+                self.update_history(R, t)
 
-            # update history with the new pose estimation
-            # self.update_history(R, t)
+                self.find_relative_scale(i)
 
-            # find relative scale
-            # self.find_relative_scale(i)
+                if self.visualize:
+                    visualize_pair(
+                        self.keyframe_img, self.cur_img, *(self.ft_results.kps_matched)
+                    )
+
+                self.keyframe_img = self.cur_img
+                self.latest_keyframe_id = i
 
         return (
             self.outliers.value,
@@ -165,8 +222,16 @@ class VisualOdometry(object):
             self.time_feature_extract.value,
         )
 
-    def update_history(self):
-        pass
+    def update_history(self, R: np.ndarray, t: np.ndarray):
+        pose = np.hstack((R, t))
+        pose = np.vstack((pose, np.array([0, 0, 0, 1])))
+        self.pose_history.append(self.pose_history[-1] @ pose)
+
+    def find_relative_scale(self, i: int):
+        if i == 1:
+            pass
+        else:
+            pass
 
 
 if __name__ == "__main__":
