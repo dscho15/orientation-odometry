@@ -35,14 +35,11 @@ class RootSiftExtractor(SiftExtractor):
     def __call__(
         self, image: np.ndarray, mask: np.ndarray = None
     ) -> tuple[np.ndarray, np.ndarray]:
-        # compute sift features
         keypoints, descriptors = self.model.detectAndCompute(image, mask)
 
-        # convert keypoints to numpy array
         keypoints = np.array([kp.pt for kp in keypoints])
         descriptors = np.array(descriptors)
 
-        # normalize descriptors
         if descriptors is not None:
             descriptors /= descriptors.sum(axis=1, keepdims=True) + 1e-7
             descriptors = np.sqrt(descriptors)
