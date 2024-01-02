@@ -3,21 +3,32 @@ from pathlib import Path
 import pandas as pd
 from PIL import Image
 from pprint import pprint
+import webbrowser
 
 
-def read_calib_kitty(calib_path: Path, dataset: int) -> list[np.ndarray]:
+def read_calib_kitty(calib_path: Path) -> list[np.ndarray]:
+    
     with open(calib_path, "r") as f:
         lines = [list(line.strip().split(" ")) for line in f.readlines()]
-    calib_data = {line[0]: line[1:] for line in lines}
-    calib_data = {k: [float(v) for v in val] for k, val in calib_data.items()}
+    
     calib_data = {
-        k: np.array(val).reshape((3, 4)) if len(val) == 12 else np.array(val)
-        for k, val in calib_data.items()
+        line[0]: line[1:] for line in lines
     }
+
     calib_data = {
-        k: np.array(val).reshape((3, 3)) if len(val) == 9 else np.array(val)
-        for k, val in calib_data.items()
+        k: [float(v) for v in val] for k, val in calib_data.items()
     }
+
+    calib_data = {
+        k: np.array(P).reshape((3, 4)) if len(P) == 12 else P
+        for k, P in calib_data.items()
+    }
+
+    calib_data = {
+        k: np.array(R).reshape((3, 3)) if len(R) == 9 else R
+        for k, R in calib_data.items()
+    }
+
     return calib_data
 
 
@@ -25,13 +36,13 @@ class KittyDataset:
     def __init__(
         self,
         p_imgs: str,
-        calib: str = None,
+        calib_path: str = None,
         timestamps: str = None,
         grayscale: bool = False,
     ) -> None:
         assert Path(p_imgs).exists(), "Dataset path does not exist"
         self.p_imgs = p_imgs
-        self.calib_data = read_calib_kitty(calib, int(self.p_imgs[-1]))
+        self.calib_data = read_calib_kitty(calib_path)
         self.camera_matrix = self.calib_data[f"K_0{self.p_imgs[-1]}:"]
         self.idx = int(p_imgs.split("_")[-1])
         self.timestamps = pd.read_csv(timestamps, header=None, names=["timestamp"])
@@ -72,4 +83,4 @@ if __name__ == "__main__":
         "datasets/2011_09_26/calib_cam_to_cam.txt",
         "datasets/2011_09_26/2011_09_26_drive_0018_extract/image_00/timestamps.txt",
     )
-    kitty_dataset[0]
+    webbrowser.open(kitty_dataset.imgs[0])
