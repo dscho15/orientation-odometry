@@ -1,14 +1,14 @@
 def get_extractor(extractor_name: str):
     if extractor_name == "sift":
-        from sift_extractor import SiftExtractor
+        from feature_extractor import SiftExtractor
 
         return SiftExtractor()
     elif extractor_name == "root_sift":
-        from sift_extractor import RootSiftExtractor
+        from feature_extractor import RootSiftExtractor
 
         return RootSiftExtractor()
     elif extractor_name == "orb":
-        from sift_extractor import OrbExtractor
+        from feature_extractor import OrbExtractor
 
         return OrbExtractor()
     else:
