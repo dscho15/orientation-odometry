@@ -2,62 +2,41 @@ from typing import Any
 import cv2
 import numpy as np
 
-
-class SiftExtractor:
+class CV2Extractor:
     def __init__(self) -> None:
-        # create sift featuer extractor
-        self.sift = cv2.SIFT_create()
-
+        self.model = None
+    
     def __call__(
         self, image: np.ndarray, mask: np.ndarray = None
     ) -> tuple[np.ndarray, np.ndarray]:
-        """
-        Extract sift features from image
-        """
-        # compute sift features
-        keypoints, descriptors = self.sift.detectAndCompute(image, mask)
+        keypoints, descriptors = self.model.detectAndCompute(image, mask)
 
-        # convert keypoints to numpy array
         keypoints = np.array([kp.pt for kp in keypoints])
         descriptors = np.array(descriptors)
 
         return (keypoints, descriptors)
 
 
-class OrbExtractor:
+class SiftExtractor(CV2Extractor):
     def __init__(self) -> None:
-        # create sift featuer extractor
-        self.orb = cv2.ORB.create(2000)
+        super().__init__
+        self.model = cv2.SIFT_create()
+
+class OrbExtractor(CV2Extractor):
+    def __init__(self, n_features: int=2000) -> None:
+        super().__init__
+        self.model = cv2.ORB.create(n_features)
+
+
+class RootSiftExtractor(SiftExtractor):
+    def __init__(self) -> None:
+        self.__init__()
 
     def __call__(
         self, image: np.ndarray, mask: np.ndarray = None
     ) -> tuple[np.ndarray, np.ndarray]:
-        """
-        Extract sift features from image
-        """
         # compute sift features
-        keypoints, descriptors = self.orb.detectAndCompute(image, mask)
-
-        # convert keypoints to numpy array
-        keypoints = np.array([kp.pt for kp in keypoints])
-        descriptors = np.array(descriptors)
-
-        return (keypoints, descriptors)
-
-
-class RootSiftExtractor:
-    def __init__(self) -> None:
-        # create sift featuer extractor
-        self.sift = cv2.SIFT_create()
-
-    def __call__(
-        self, image: np.ndarray, mask: np.ndarray = None
-    ) -> tuple[np.ndarray, np.ndarray]:
-        """
-        Extract sift features from image
-        """
-        # compute sift features
-        keypoints, descriptors = self.sift.detectAndCompute(image, mask)
+        keypoints, descriptors = self.model.detectAndCompute(image, mask)
 
         # convert keypoints to numpy array
         keypoints = np.array([kp.pt for kp in keypoints])
