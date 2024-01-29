@@ -16,13 +16,8 @@ def get_extractor(extractor_name: str):
 
 
 def get_matcher(matcher_name: str):
-    if matcher_name == "greedy":
-        from matcher import GreedyMatcher
-
-        return GreedyMatcher()
-    elif matcher_name == "ratio":
-        from matcher import RatioMatcher
-
-        return RatioMatcher()
+    if matcher_name == "standard":
+        from matcher import FeatureMatcher
+        return FeatureMatcher()
     else:
         raise NotImplementedError("Matcher not implemented")

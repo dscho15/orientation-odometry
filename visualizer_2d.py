@@ -1,8 +1,6 @@
 import numpy as np
 from matplotlib import pyplot as plt
 import cv2
-import logging
-from typing import Optional
 
 
 def visualize_pair(
@@ -36,4 +34,27 @@ def visualize_pair(
 
     plt.imshow(img)
     plt.show()
+
     return img
+
+def visualize_quaternion_trajectory(
+    odom: list[np.ndarray],
+):
+    rotm = np.array([pose[:3, :3] for pose in odom])
+
+    def rotm_2_quat(rotm):
+        qw = np.sqrt(1 + rotm[0, 0] + rotm[1, 1] + rotm[2, 2]) / 2
+        if qw < 0:
+            qw = -qw
+        qx = (rotm[2, 1] - rotm[1, 2]) / (4 * qw)
+        qy = (rotm[0, 2] - rotm[2, 0]) / (4 * qw)
+        qz = (rotm[1, 0] - rotm[0, 1]) / (4 * qw)
+        return np.array([qw, qx, qy, qz])
+    
+    quats = np.array([rotm_2_quat(rotm) for rotm in rotm])
+    
+    plt.plot(quats[:, 0], label="qw")
+    plt.plot(quats[:, 1], label="qx")
+    plt.plot(quats[:, 2], label="qy")
+    plt.plot(quats[:, 3], label="qz")
+    plt.show()

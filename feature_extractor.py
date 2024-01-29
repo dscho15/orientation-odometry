@@ -16,17 +16,15 @@ class CV2Extractor:
 
         return (keypoints, descriptors)
 
-
 class SiftExtractor(CV2Extractor):
     def __init__(self) -> None:
         super().__init__
         self.model = cv2.SIFT_create()
 
 class OrbExtractor(CV2Extractor):
-    def __init__(self, n_features: int=2000) -> None:
+    def __init__(self, n_features: int=3000) -> None:
         super().__init__
         self.model = cv2.ORB.create(n_features)
-
 
 class RootSiftExtractor(SiftExtractor):
     def __init__(self) -> None:
@@ -45,6 +43,16 @@ class RootSiftExtractor(SiftExtractor):
             descriptors = np.sqrt(descriptors)
 
         return (keypoints, descriptors)
+    
+
+class SILKExtractor:
+    def __init__(self) -> None:
+        pass
+
+    def __call__(
+        self, image: np.ndarray, mask: np.ndarray = None
+    ) -> tuple[np.ndarray, np.ndarray]:
+        pass
 
 
 if __name__ == "__main__":

@@ -22,7 +22,7 @@ class VisualOdometry(object):
     ransac_confidence = 0.999
     ransac_method = cv2.RANSAC
     ransac_max_iters = 20000
-    keypoint_criteria_max_number_of_frames = 3
+    keypoint_criteria_max_number_of_frames = 1
     keypoint_criteria_min_movement_tsh = 3
     keypoint_criteria_min_matched_tsh = 20
 
@@ -52,7 +52,10 @@ class VisualOdometry(object):
         self.outliers = MovingAverageFilter(10)
         self.time_pose_est = MovingAverageFilter(10)
         self.time_feature_extract = MovingAverageFilter(10)
+        self.average_movement = MovingAverageFilter(10)
+        self.feature_tracking_results = []
 
+        self.key_results = []
         self.visualize: bool = do_visualize
         self.latest_keyframe_id: int = 0
 
@@ -63,6 +66,7 @@ class VisualOdometry(object):
     ) -> bool:
         # Criteria 1: Sufficient camera movement
         avg_movement = np.median(squared_error(prev_kps, cur_kps))
+        self.average_movement(avg_movement)
         if avg_movement < self.keypoint_criteria_min_movement_tsh:
             return False
 
@@ -168,7 +172,7 @@ class VisualOdometry(object):
 
         self.cur_kps, self.cur_desc = self.fm_extractor(self.cur_img)
 
-        self.matches = self.matcher(self.keyframe_desc, self.cur_desc)
+        self.matches = self.matcher(self.keyframe_desc, self.cur_desc, self.keyframe_kps, self.cur_kps)
 
         feature_tracking_result = FeatureTrackingResult(
             self.cur_kps,
@@ -177,6 +181,8 @@ class VisualOdometry(object):
             self.keyframe_desc,
             self.matches,
         )
+
+        self.feature_tracking_results.append(feature_tracking_result)
 
         self.time_feature_extract(time.time() - feature_timer)
         return feature_tracking_result
@@ -194,6 +200,8 @@ class VisualOdometry(object):
 
             if not self.check_keypoint_criteria(*(self.ft_results.kps_matched), i):
                 logging.info(f"Keypoint criteria not met {i}")
+                R, t = np.eye(3, 3), np.zeros((3, 1))
+                self.update_history(R, t)
 
             else:
                 (R, t), self.mask_match = self.estimate_pose(
@@ -205,21 +213,27 @@ class VisualOdometry(object):
                 self.outliers(self.num_inliers / num_matches)
 
                 self.update_history(R, t)
-
                 self.find_relative_scale(i)
-
+                
                 if self.visualize:
                     visualize_pair(
-                        self.keyframe_img, self.cur_img, *(self.ft_results.kps_matched)
+                        self.keyframe_img, 
+                        self.cur_img, 
+                        *(self.ft_results.kps_matched)
                     )
+                    plt.show()
 
                 self.keyframe_img = self.cur_img
+                self.keyframe_kps = self.cur_kps
+                self.keyframe_desc = self.cur_desc
+
                 self.latest_keyframe_id = i
 
         return (
             self.outliers.value,
             self.time_pose_est.value,
             self.time_feature_extract.value,
+            self.average_movement.value,
         )
 
     def update_history(self, R: np.ndarray, t: np.ndarray):
@@ -228,10 +242,16 @@ class VisualOdometry(object):
         self.pose_history.append(self.pose_history[-1] @ pose)
 
     def find_relative_scale(self, i: int):
-        if i == 1:
-            pass
-        else:
-            pass
+        if i < 1:
+            return
+    
+        # Extract the indices that are shared between the matched keypoints ({i-1, i}, {i, i+1})
+        ft_results_prev = self.feature_tracking_results[-2]
+        ft_results_curr = self.feature_tracking_results[-1]
+
+        # Extract the matched keypoints
+        kps_prev_matched = ft_results_prev.kps_matched[0]
+        kps_curr_matched = ft_results_curr.kps_matched[0]
 
 
 if __name__ == "__main__":
