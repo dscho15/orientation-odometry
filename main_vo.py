@@ -1,5 +1,5 @@
 from argparse import ArgumentParser
-from dataset import KittyDataset
+from dataset import KittyDataset, CustomDataset
 from core.camera.camera import PinholeCamera
 from misc import get_extractor, get_matcher
 from visual_odometry import VisualOdometry
@@ -9,6 +9,12 @@ from tqdm import tqdm
 
 def parse_args():
     args = ArgumentParser(description="Visual Odometry")
+    args.add_argument(
+        "--dataset",
+        "-d",
+        default="custom",
+        type=str
+    )
     args.add_argument(
         "--timestamps",
         type=str,
@@ -36,7 +42,12 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
 
-    dataset = KittyDataset(args.images_dir, args.camera_intrinsics, args.timestamps)
+    if args.dataset == "kitty":
+        dataset = KittyDataset(args.images_dir, args.camera_intrinsics, args.timestamps)
+    elif args.dataset == "custom":
+        dataset = CustomDataset(args.images_dir)
+    else:
+        raise Exception("Dataset not supported")
 
     frames = []
 
@@ -61,4 +72,8 @@ if __name__ == "__main__":
             )
         )
         
-    visualize_quaternion_trajectory(visual_odom.pose_history)
+    quats = visualize_quaternion_trajectory(visual_odom.pose_history) # N, 4
+    # save as csv
+    import pandas as pd
+    df = pd.DataFrame(quats, columns=['w', 'x', 'y', 'z'])
+    df.to_csv('output/quats.csv', index=False)

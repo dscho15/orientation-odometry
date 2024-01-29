@@ -53,8 +53,10 @@ def visualize_quaternion_trajectory(
     
     quats = np.array([rotm_2_quat(rotm) for rotm in rotm])
     
-    plt.plot(quats[:, 0], label="qw")
-    plt.plot(quats[:, 1], label="qx")
-    plt.plot(quats[:, 2], label="qy")
-    plt.plot(quats[:, 3], label="qz")
-    plt.show()
+    # plt.plot(quats[:, 0], label="qw")
+    # plt.plot(quats[:, 1], label="qx")
+    # plt.plot(quats[:, 2], label="qy")
+    # plt.plot(quats[:, 3], label="qz")
+    # plt.show()
+
+    return quats

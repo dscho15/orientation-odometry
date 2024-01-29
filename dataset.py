@@ -76,6 +76,48 @@ class KittyDataset:
         img = np.array(img)
         return img
 
+class CustomDataset:
+    def __init__(
+        self,
+        p_imgs: str,
+        pinhole_params: list[float] = [2534, 2534, 1920 // 2, 1080 // 2],
+        grayscale: bool = False,
+    ) -> None:
+        assert Path(p_imgs).exists(), "Dataset path does not exist"
+        assert len(pinhole_params) == 4, "Pinhole parameters must be of length 4"
+        self.p_imgs = p_imgs
+        
+        self.camera_matrix = np.ones((3, 3))
+        self.camera_matrix[0, 0], self.camera_matrix[1, 1] = pinhole_params[:2]
+        self.camera_matrix[0, 2], self.camera_matrix[1, 2] = pinhole_params[2:]
+
+        self.imgs = Path(self.p_imgs).rglob("*.png")
+        self.imgs = sorted([str(img) for img in self.imgs])
+        
+        self.grayscale = grayscale
+
+    @property
+    def get_raw_extrinsics(self) -> np.ndarray:
+        cam_mat = self.camera_matrix
+        fx, fy, cx, cy = cam_mat[0, 0], cam_mat[1, 1], cam_mat[0, 2], cam_mat[1, 2]
+        return fx, fy, cx, cy
+
+    @property
+    def get_hw(self) -> tuple:
+        img = Image.open(self.imgs[0])
+        h, w = img.size
+        return h, w
+
+    def __len__(self) -> int:
+        return len(self.imgs)
+
+    def __getitem__(self, idx):
+        img = Image.open(self.imgs[idx])
+        if self.grayscale:
+            img = img.convert("L")
+        img = np.array(img)
+        return img
+
 
 if __name__ == "__main__":
     kitty_dataset = KittyDataset(
