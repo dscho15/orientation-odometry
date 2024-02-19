@@ -1,3 +1,5 @@
 datasets/kitty*
 *pycache*
 datasets/*
+*.png
+*.jpg
