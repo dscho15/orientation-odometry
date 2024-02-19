@@ -1,25 +1,21 @@
 import numpy as np
 import cv2
-import logging
-from enum import Enum
 
 class FeatureMatcher:
-    ratio_test = 0.5
-    fm_ransac_confidence = 0.999
-    fm_ransac_reproj_threshold = 1.0
-    fm_ransac_method = cv2.RANSAC
 
     def __init__(
         self,
-        norm_type: int = cv2.NORM_HAMMING,
-        cross_check: bool = False,
-        ratio_test: float = 0.5,
+        norm_type: int = cv2.NORM_L2,
+        ratio_test: float = 0.3,
     ) -> None:
-        self.cross_check = cross_check
-        self.matcher = cv2.BFMatcher(norm_type, cross_check)
+        self.matcher = cv2.BFMatcher(norm_type, False)
         self.matcher_name = "FeatureMatcher"
         self.norm_type = norm_type
         self.ratio_test = ratio_test
+        self.fm_ransac_confidence = 0.9999
+        self.fm_ransac_reproj_threshold = 1.0
+        self.fm_ransac_method = cv2.RANSAC
+        self.cross_check = True
 
     def __call__(
         self,
@@ -31,19 +27,15 @@ class FeatureMatcher:
     ):
         indices1, indices2 = [], []
 
-        init_matches1 = self.matcher.knnMatch(desc1, desc2, k=2, mask=mask)
+        init_matches1 = self.matcher.knnMatch(desc1, desc2, k=2, mask=mask) # query is desc1, train is desc2
         init_matches2 = self.matcher.knnMatch(desc2, desc1, k=2, mask=mask)
-
-        logging.info(
-            f"{self.matcher_name}: {len(init_matches1)} initial matches \t ⊂(◉‿◉)つ"
-        )
 
         matches = []
         for i, (m1, n1) in enumerate(init_matches1):
             cond = True
             
             if self.cross_check:
-                is_cross_check_valid = init_matches2[m1.trainIdx][0].trainIdx == i
+                is_cross_check_valid = (init_matches2[m1.trainIdx][0].trainIdx == i)
                 cond *= is_cross_check_valid
 
             if self.ratio_test is not None:
@@ -71,11 +63,6 @@ class FeatureMatcher:
             ransacReprojThreshold=self.fm_ransac_reproj_threshold,
             confidence=self.fm_ransac_confidence,
         )
-        n_inlier = np.count_nonzero(mask)
-
-        logging.info(
-            f"{self.matcher_name}: {n_inlier}/{len(matches)} ({n_inlier/len(matches)*100:.2f}%) inliers \t (ㆆ _ ㆆ)"
-        )
 
         indices1 = np.array(indices1)[mask.ravel() == 1]
         indices2 = np.array(indices2)[mask.ravel() == 1]
@@ -84,28 +71,3 @@ class FeatureMatcher:
         matches = np.asarray(matches)
 
         return matches
-    
-if __name__ == "__main__":
-
-    logging.basicConfig(level=logging.INFO)
-
-    fm = FeatureMatcher()
-
-    # load random image online
-    img1 = cv2.imread('datasets/2011_09_26/2011_09_26_drive_0018_extract/image_00/data/0000000000.png') # queryImage
-    img2 = cv2.imread('datasets/2011_09_26/2011_09_26_drive_0018_extract/image_00/data/0000000192.png') # trainImage
-
-    # extract orb features
-    orb = cv2.ORB_create(8000)
-    kp1, des1 = orb.detectAndCompute(img1, None)
-    kp2, des2 = orb.detectAndCompute(img2, None)
-
-    # convert des1, des2 to ndarray
-    des1 = np.asarray(des1)
-    des2 = np.asarray(des2)
-
-    kp1 = [kp for kp in np.asarray(kp1)]
-    kp2 = [kp for kp in np.asarray(kp2)]
-
-    # match features
-    matches = fm(des1, des2, kp1, kp2)
