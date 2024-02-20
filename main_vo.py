@@ -11,6 +11,7 @@ from tqdm import tqdm
 import pandas as pd
 from visual_odometry import VisualOdometry
 from vo_utils import convert_poses_to_quaternions
+from rowan import interpolate
 
 
 def parse_args():
@@ -89,13 +90,6 @@ if __name__ == "__main__":
     df = pd.DataFrame(quats, columns=['w', 'x', 'y', 'z'])
     df.to_csv(f'output/{Path(args.images_dir).stem}.csv', index=False)
 
-    def slerp(q1: np.ndarray, q2: np.ndarray, t: float, epsilon: float = 1e-6):
-        omega = np.arccos(np.dot(q1 / np.linalg.norm(q1), q2 / np.linalg.norm(q2)))
-        so = np.sin(omega)
-        if so < epsilon:
-            return q1
-        return (np.sin((1.0 - t) * omega) / so) * q1 + (np.sin(t * omega) / so) * q2
-
     imgs = dataset.imgs
     orig_data = pd.read_csv(f"output/{Path(args.images_dir).stem}.csv")
     data = pd.DataFrame(columns=['img', 'w', 'x', 'y', 'z'])
@@ -103,9 +97,9 @@ if __name__ == "__main__":
 
     quats = []
     for i in range(len(orig_data)):
-        quat = np.array(orig_data.iloc[i].values)
+        quat = np.array(orig_data.iloc[i].values[-4:])
         quats.append(quat)
-        
+    
     diff = np.diff(quats, axis=0)
     indices = np.where(np.sum(diff, axis=1) != 0)[0]
     indices = indices + 1
@@ -123,7 +117,8 @@ if __name__ == "__main__":
         q2 = orig_data.iloc[idx2, -4:].values
         
         for i, t in enumerate(np.linspace(0, 1, idx2 - idx1 + 1)):
-            (w, x, y, z) = slerp(q1, q2, t)
+            q = interpolate.slerp(q1, q2, t)
+            w, x, y, z = q[0, 0], q[0, 1], q[0, 2], q[0, 3]
             data.iloc[idx1 + i, 1:] = (w, x, y, z)
             
     # drop the frames that has nans in data frame

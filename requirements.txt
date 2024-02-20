@@ -15,7 +15,4 @@ usort
 flake8
 flake8-bugbear
 flake8-comprehensions
-# torch
-# torchvision
-# torchaudio
-# git+https://github.com/facebookresearch/pytorch3d.git@stable
+rowan
