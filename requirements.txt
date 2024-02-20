@@ -4,3 +4,18 @@ pandas
 matplotlib
 pyparsing
 g2o-python
+tqdm
+plotly
+iopath
+fvcore
+scikit-image
+imageio
+black
+usort
+flake8
+flake8-bugbear
+flake8-comprehensions
+# torch
+# torchvision
+# torchaudio
+# git+https://github.com/facebookresearch/pytorch3d.git@stable

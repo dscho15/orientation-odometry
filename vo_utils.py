@@ -1,6 +1,5 @@
 import numpy as np
 
-
 class FeatureTrackingResult(object):
     def __init__(
         self,
@@ -20,13 +19,13 @@ class FeatureTrackingResult(object):
 
         assert matches.shape[1] == 2, "Matches array should have shape (n, 2)"
 
-        self.cur_kps = cur_kps
-        self.cur_desc = cur_desc
-        self.cur_idxs = matches[:, 1]
-
         self.prev_kps = prev_kps
         self.prev_desc = prev_desc
         self.prev_idxs = matches[:, 0]
+        
+        self.cur_kps = cur_kps
+        self.cur_desc = cur_desc
+        self.cur_idxs = matches[:, 1]
 
     @property
     def kps_cur_matched(self):
@@ -56,3 +55,19 @@ class FeatureTrackingResult(object):
             self.prev_desc,
             self.prev_idxs,
         )
+
+def rotm_2_quat(rotm: np.ndarray):
+    qw = np.sqrt(1 + rotm[0, 0] + rotm[1, 1] + rotm[2, 2]) / 2
+    if qw < 0:
+        qw = -qw
+    qx = (rotm[2, 1] - rotm[1, 2]) / (4 * qw)
+    qy = (rotm[0, 2] - rotm[2, 0]) / (4 * qw)
+    qz = (rotm[1, 0] - rotm[0, 1]) / (4 * qw)
+    return np.array([qw, qx, qy, qz])
+
+def convert_poses_to_quaternions(
+    odom: list[np.ndarray],
+):
+    rotm_matrices = np.array([pose[:3, :3] for pose in odom])
+    quaternions = np.array([rotm_2_quat(rotm) for rotm in rotm_matrices])  
+    return quaternions

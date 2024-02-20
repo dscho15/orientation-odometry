@@ -56,7 +56,7 @@ class KittyDataset:
     @property
     def get_hw(self) -> tuple:
         img = Image.open(self.imgs[0])
-        h, w = img.size
+        w, h = img.size
         return h, w
 
     def __len__(self) -> int:
@@ -86,16 +86,19 @@ class CustomDataset:
         self.imgs = sorted([str(img) for img in self.imgs])
         if n_imgs is not None:
             self.imgs = self.imgs[:n_imgs]
-        
         self.max_img_size = max_img_size
+        
         self.camera_matrix = np.ones((3, 3))
         if pinhole_params is not None:
+        
             self.camera_matrix[0, 0], self.camera_matrix[1, 1] = pinhole_params[:2]
             self.camera_matrix[0, 2], self.camera_matrix[1, 2] = pinhole_params[2:]
+        
         elif fov_w_deg is not None:
+            
             self.field_of_view = fov_w_deg
             
-            w, h = self.get_hw
+            h, w = self.get_hw
             
             if max_img_size < max(w, h):
                 if h > w:

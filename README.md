@@ -23,3 +23,9 @@ This project is licensed under the terms of the MIT license. For more details, s
 If you have any questions, issues, or suggestions, please open an issue in this repository.
 
 Thank you for your interest in our Visual Odometry project. We look forward to your participation.
+
+# Installation
+
+To create camera pose plots, it is required that you install pytorch3d, i recommend to install it through conda and follow their installation tutorial on git.
+
+
