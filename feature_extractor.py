@@ -19,12 +19,12 @@ class CV2Extractor:
 class SiftExtractor(CV2Extractor):
     def __init__(self) -> None:
         super().__init__()
-        self.model = cv2.SIFT_create()
+        self.model = cv2.SIFT_create(nfeatures=8000)
 
 class RootSiftExtractor(CV2Extractor):
     def __init__(self) -> None:
         super().__init__()
-        self.model = cv2.SIFT_create()
+        self.model = cv2.SIFT_create(nfeatures=8000)
 
     def __call__(
         self, 
@@ -46,9 +46,3 @@ class OrbExtractor(CV2Extractor):
     def __init__(self, n_features: int=3000) -> None:
         super().__init__
         self.model = cv2.ORB.create(n_features)
-
-if __name__ == "__main__":
-    image = np.random.randint(0, 255, size=(512, 512, 3), dtype=np.uint8)
-    extractor = SiftExtractor()
-    kp, desc = extractor(image)
-    print(kp, desc)

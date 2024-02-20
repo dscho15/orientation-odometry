@@ -1,7 +1,6 @@
 import cv2
 import logging
 import time
-from pprint import pprint
 
 import numpy as np
 
@@ -21,9 +20,9 @@ def squared_error(x: np.ndarray, y: np.ndarray) -> float:
 class VisualOdometry(object):
     ransac_tsh_normalized = 2.0
     ransac_confidence = 0.9999
-    ransac_method = cv2.RANSAC
-    ransac_max_iters = 20000
-    keypoint_criteria_min_number_of_frames = 4
+    ransac_method = cv2.USAC_ACCURATE
+    ransac_max_iters = 60000
+    keypoint_criteria_min_number_of_frames = 5
     keypoint_criteria_min_movement_tsh = 1
     keypoint_criteria_min_matched_tsh = 20
     essen_mat_eps = 1e-3
@@ -149,7 +148,8 @@ class VisualOdometry(object):
             cur_proj = (
                 self.camera.intrinsics
                 @ np.eye(3, 4)
-                @ np.vstack((P, np.array([0, 0, 0, 1])))
+                @ np.vstack((P, 
+                             np.array([0, 0, 0, 1])))
             )
 
             points_3d = cv2.triangulatePoints(prev_proj, cur_proj, prev_kps.T, cur_kps.T)

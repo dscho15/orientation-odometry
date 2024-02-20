@@ -14,7 +14,7 @@ class FeatureMatcher:
         self.ratio_test = ratio_test
         self.fm_ransac_confidence = 0.9999
         self.fm_ransac_reproj_threshold = 1.0
-        self.fm_ransac_method = cv2.RANSAC
+        self.fm_ransac_method = cv2.USAC_ACCURATE
         self.cross_check = True
 
     def __call__(
