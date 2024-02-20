@@ -137,11 +137,11 @@ class CustomDataset:
             return img
         
         if h > w:
-            w = int(w * 1024 / h)
-            h = 1024
+            w = int(w * self.max_img_size / h)
+            h = self.max_img_size
         else:
-            h = int(h * 1024 / w)
-            w = 1024
+            h = int(h * self.max_img_size / w)
+            w = self.max_img_size
             
         img = Image.fromarray(img)
         img = img.resize((w, h))
