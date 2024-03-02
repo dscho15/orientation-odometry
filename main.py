@@ -96,12 +96,11 @@ camera = PinholeCamera(*dataset.get_hw, *dataset.get_raw_extrinsics)
 pbar = tqdm(range(len(dataset)))
 
 features = []
-if True:
-    imgs = []
+imgs = []
 for i in pbar:
     img = dataset[i]
     features.append(extractor(img))
-    if True:
+    if args.visualize:
         imgs.append(img)
 
 connections = []
@@ -120,7 +119,7 @@ for i in range(1, len(features) - offset):
     m13, n_matches13, error13 = compute_error_and_median(matcher, desc1, desc3, kps1, kps3)
     m23, n_matches23, error23 = compute_error_and_median(matcher, desc2, desc3, kps2, kps3)
     
-    if True:
+    if args.visualize:
         visualize_pair(
             imgs[i-1],
             imgs[i+offset],
