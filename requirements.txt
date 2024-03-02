@@ -3,7 +3,6 @@ opencv-python
 pandas
 matplotlib
 pyparsing
-g2o-python
 tqdm
 plotly
 iopath
@@ -12,7 +11,4 @@ scikit-image
 imageio
 black
 usort
-flake8
-flake8-bugbear
-flake8-comprehensions
 rowan
