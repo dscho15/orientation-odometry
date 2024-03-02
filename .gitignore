@@ -3,3 +3,5 @@ datasets/kitty*
 datasets/*
 *.png
 *.jpg
+output/*
+scripts/*

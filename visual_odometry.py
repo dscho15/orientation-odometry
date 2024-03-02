@@ -22,8 +22,8 @@ class VisualOdometry(object):
     ransac_confidence = 0.9999
     ransac_method = cv2.USAC_ACCURATE
     ransac_max_iters = 60000
-    keypoint_criteria_min_number_of_frames = 5
-    keypoint_criteria_min_movement_tsh = 1
+    keypoint_criteria_min_number_of_frames = 1
+    keypoint_criteria_min_movement_tsh = 0.5
     keypoint_criteria_min_matched_tsh = 20
     essen_mat_eps = 1e-3
     max_rot_eps = np.pi / 4
@@ -73,8 +73,8 @@ class VisualOdometry(object):
         if avg_movement < self.keypoint_criteria_min_movement_tsh:
             return False
 
-        if (frame_id - self.latest_keyframe_id < self.keypoint_criteria_min_number_of_frames):
-            return False
+        # if (frame_id - self.latest_keyframe_id < self.keypoint_criteria_min_number_of_frames):
+        #     return False
 
         if len(prev_kps) < self.keypoint_criteria_min_matched_tsh:
             return False
