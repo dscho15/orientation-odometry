@@ -25,18 +25,19 @@ def visualize_pair(
         img = np.hstack([img1, img2])
     else:
         img = img2
-        
-    indices = matches
-    kps1 = kps1[indices[:, 0]]
-    kps2 = kps2[indices[:, 1]]
-
-    if mask is not None:
-        kps1 = kps1[mask.ravel() == 1]
-        kps2 = kps2[mask.ravel() == 1]
     
-    idxs = np.random.permutation(kps1.shape[0])
-    kps1 = kps1[idxs]
-    kps2 = kps2[idxs]
+    # if matches is not None:
+    #     indices = matches
+    #     kps1 = kps1[indices[:, 0]]
+    #     kps2 = kps2[indices[:, 1]]
+
+    # if mask is not None:
+    #     kps1 = kps1[mask.ravel() == 1]
+    #     kps2 = kps2[mask.ravel() == 1]
+    
+    # idxs = np.random.permutation(kps1.shape[0])
+    # kps1 = kps1[idxs]
+    # kps2 = kps2[idxs]
     
     cnt = 0
     for kp1, kp2 in zip(kps1, kps2):
