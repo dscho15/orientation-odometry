@@ -24,14 +24,16 @@ class SiftExtractor(CV2Extractor):
 
     def __init__(self, n_features: int) -> None:
         super().__init__()
-        self.model = cv2.SIFT_create(nfeatures=n_features)
+        self.model = cv2.SIFT_create(nfeatures=n_features,
+                                     contrastThreshold=0.01)
 
 
 class RootSiftExtractor(CV2Extractor):
 
     def __init__(self, n_features: int) -> None:
         super().__init__()
-        self.model = cv2.SIFT_create(nfeatures=n_features)
+        self.model = cv2.SIFT_create(nfeatures=n_features,
+                                     contrastThreshold=0.01)
 
     def __call__(
         self, image: np.ndarray, mask: np.ndarray = None

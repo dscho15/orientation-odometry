@@ -1,3 +1,8 @@
+from PIL import Image
+from concurrent.futures import ThreadPoolExecutor
+from tqdm import tqdm
+import numpy as np
+
 def get_extractor(extractor_name: str,
                   n_features: int = 10000):
     if extractor_name == "sift":
@@ -16,14 +21,26 @@ def get_extractor(extractor_name: str,
         raise NotImplementedError("Extractor not implemented")
 
 
-def get_matcher(matcher_name: str,
-                n_ransac_max_iters: int,
-                ransac_confidence: float,
-                ransac_reproj_threshold: float = 3.0):
+def get_matcher(matcher_name: str):
     if matcher_name == "standard":
         from matcher import FeatureMatcher
-        return FeatureMatcher(fm_ransac_confidence=ransac_confidence,
-                              fm_ransac_max_iters=n_ransac_max_iters,
-                              fm_ransac_reproj_threshold=ransac_reproj_threshold)
+        return FeatureMatcher()
     else:
         raise NotImplementedError("Matcher not implemented")
+    
+def load_imgs_using_multithreading(paths, n: int = 8):
+    
+    def load_img(path):
+        img = np.array(Image.open(path).convert('L'))
+        return img
+    
+    with ThreadPoolExecutor(n) as executor:
+        futures = []
+        for image in paths:
+            futures.append(executor.submit(load_img, image))
+    
+    processed_images = []
+    for future in tqdm(futures):
+        processed_images.append(future.result())
+        
+    return processed_images

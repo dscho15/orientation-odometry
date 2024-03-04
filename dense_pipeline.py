@@ -149,22 +149,11 @@ for i in tqdm(range(1, len(imgs))):
     matches.append((ref_pts, img_pts))
     
 def compute_pose(kps1, kps2, camera):
-        
-    # F, mask = cv2.findFundamentalMat(kps1, kps2, method=cv2.FM_RANSAC, ransacReprojThreshold=0.01, confidence=0.9999, maxIters=10000)
-    
-    # kps1 = kps1[mask.ravel() == 1]
-    # kps2 = kps2[mask.ravel() == 1]
-        
     F, mask = cv2.findFundamentalMat(kps1, kps2, cv2.FM_LMEDS)
-    
-    
     kps1 = kps1[mask.ravel() == 1]
     kps2 = kps2[mask.ravel() == 1]
-    
     E = camera.K.T @ F @ camera.K
-    
     _, R, t, _ = cv2.recoverPose(E, kps1, kps2, focal=1, pp=(0., 0.))
-    
     return R, t, E, kps1, kps2
 
 rotms = []
